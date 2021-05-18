@@ -116,7 +116,7 @@
     const groundMat = new BABYLON.StandardMaterial("groundMat");
     groundMat.diffuseTexture = new BABYLON.Texture("textures/snowfloor.jpg");
     
-    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground", "assets/HeightMap2.jpg", {width:150, height:150, subdivisions: 10, minHeight: 5, maxHeight: 5});
+    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground", "assets/HeightMap2.jpg", {width:150, height:150, subdivisions: 10, minHeight: 5, maxHeight: 7});
     ground.material = groundMat;
 
     // Create walls
