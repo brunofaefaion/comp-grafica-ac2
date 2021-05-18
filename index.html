@@ -51,7 +51,48 @@
     scene.debugLayer.show({
     embedMode: true,
     });
-
+    const itemsPositions = [
+        {
+            x: -20,
+            z: 22,
+        },
+        {
+            x: -35,
+            z: 42,
+        },
+        {
+            x: 47,
+            z: -32,
+        },
+        {
+            x: 8,
+            z: -29,
+        },
+        {
+            x: 54,
+            z: 34,
+        },
+        {
+            x: 31,
+            z: 32,
+        },
+        {
+            x: 65,
+            z: 2,
+        },
+        {
+            x: 2,
+            z: -64,
+        },
+        {
+            x: 18,
+            z: 34,
+        },
+        {
+            x: -65,
+            z: 8,
+        },
+    ]
 
 
     // Camera and light
@@ -119,7 +160,8 @@
     const items = [];
     for (let i = 0; i < 10; i++) {
         items.push(BABYLON.MeshBuilder.CreateBox(`item${i}`, { width: i + 2, height: 10, depth: i + 2}, scene));
-        items[i].position.x = -50 + 12 * i;
+        items[i].position.x = itemsPositions[i].x;
+        items[i].position.z = itemsPositions[i].z;
         items[i].position.y = 8;
         items[i].animations.push(ySlide);
     }
