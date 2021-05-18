@@ -202,6 +202,39 @@
     cylinder.position.y = 8;
     cylinder.position.x = barrelPosition.x;
     cylinder.isVisible = false;
+
+     // GUI
+    var plane = BABYLON.Mesh.CreatePlane("plane", 100);
+    plane.parent = ground;
+    plane.position.y = 30;
+    plane.position.z = -120;
+    plane.rotation.y = Math.PI
+
+    var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(plane);
+
+    var button1 = BABYLON.GUI.Button.CreateSimpleButton("but1", "Arthur B. Manoel\nBruno Faé Faion");
+    button1.width = 200;
+    button1.height = 100;
+    button1.color = "white";
+    button1.fontSize = 100;
+    button1.background = "purple";
+    advancedTexture.addControl(button1);
+
+
+    let particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene)
+    particleSystem.particleTexture = new BABYLON.Texture("./assets/butterfly.png", scene);
+    particleSystem.minSize = 5;
+    particleSystem.maxSize = 8;
+    particleSystem.minLifeTime = 1;
+    particleSystem.maxLifeTime = 1.5;
+    particleSystem.emitRate = 5000;
+    particleSystem.createPointEmitter(new BABYLON.Vector3(2, 4, 3), new BABYLON.Vector3(-2, 8, -3));
+    particleSystem.minEmitPower = 5;
+    particleSystem.maxEmitPower = 8;
+    particleSystem.updateSpeed = 0.01;
+    particleSystem.targetStopDuration = 0.08;
+    particleSystem.emitter = new BABYLON.Vector3(barrelPosition.x, 8, 0);
+
     // Load Exploding Barrel
     const barrel = BABYLON.SceneLoader.ImportMesh("", "/assets/", "ExplodingBarrel.glb", scene, function (meshes) {
         var barrel = meshes[0];
@@ -303,6 +336,7 @@
             } else if (hero.intersectsMesh(cylinder, false) && !exploded){
                 cylinder.dispose();
                 scene.getMeshByName("barrel").dispose();
+                particleSystem.start();
                 explosionSound.play();
                 exploded = true;
             }
