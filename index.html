@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/ammo.js"></script>
+        <script src="https://preview.babylonjs.com/cannon.js"></script>
+        <script src="https://preview.babylonjs.com/Oimo.js"></script>
+        <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        const createScene =  () => {
+    const scene = new BABYLON.Scene(engine);
+
+    scene.debugLayer.show({
+    embedMode: true,
+    });
+
+
+
+    // Camera and light
+    const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 50, new BABYLON.Vector3(0, -5, 0), scene);
+    scene.ActiveCamera = camera;
+    scene.ActiveCamera.attachControl(canvas, true);
+    camera.upperBetaLimit = Math.PI / 2.2;
+    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(2, 1, 0));
+
+    // Gravity and collision
+    scene.gravity = new BABYLON.Vector3(0, -0.15, 0);
+    camera.applyGravity = true;
+
+    camera.ellipsoid = new BABYLON.Vector3(1, 1, 1);
+
+    const assumedFramesPerSecond = 60;
+    const earthGravity = -9.81;
+    scene.gravity = new BABYLON.Vector3(0, earthGravity / assumedFramesPerSecond, 0);
+
+    scene.collisionsEnabled = true;
+    camera.checkCollisions = true;
+    
+    //Create large ground for valley environment
+    const groundMat = new BABYLON.StandardMaterial("groundMat");
+    groundMat.diffuseTexture = new BABYLON.Texture("textures/snowfloor.jpg");
+    
+    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground", "assets/HeightMap2.jpg", {width:150, height:150, subdivisions: 10, minHeight: 0, maxHeight: 10});
+    ground.material = groundMat;
+
+    // Create walls
+    const walls = []
+    for (let i = 0; i < 4; i++) {
+        walls.push(BABYLON.MeshBuilder.CreateBox(`wall${i}`, { height: 50, width: 150 }, scene));
+        walls[i].isVisible = false;
+        walls[i].collisionsEnabled = true;
+        walls[i].checkCollisions = true;
+        walls[i].flipFaces = true;
+        walls[i].position.y = 1;
+    }
+    walls[0].position.z = 75;
+    walls[1].position.z = -75;
+    walls[2].rotation.y = Math.PI / 2;
+    walls[2].position.x = -75;
+    walls[3].rotation.y = Math.PI / 2;
+    walls[3].position.x = 75;
+
+    const collectSound = new BABYLON.Sound('collectSound', './assets/collect.mp3', scene);
+    collectSound.play();
+    const ySlide = new BABYLON.Animation("ySlide", "position.y", 10, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+    const keyFrames = [];
+    keyFrames.push({
+        frame: 0,
+        value: 8
+    });
+    keyFrames.push({
+        frame: 5,
+        value: 13
+    });   
+    keyFrames.push({
+        frame: 10,
+        value: -5
+    });
+    ySlide.setKeys(keyFrames);
+    // Create items
+    const items = [];
+    for (let i = 0; i < 10; i++) {
+        items.push(BABYLON.MeshBuilder.CreateBox(`item${i}`, { width: i + 2, height: 10, depth: i + 2}, scene));
+        items[i].position.x = -50 + 12 * i;
+        items[i].position.y = 8;
+        items[i].animations.push(ySlide);
+    }
+
+    // Skybox
+	const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", {size:1500}, scene);
+    const skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+    skyboxMaterial.backFaceCulling = false;
+    skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("textures/skybox4", scene);
+	skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+	skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+	skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+	skybox.material = skyboxMaterial;	
+
+    // Keyboard events
+    var inputMap = {};
+    scene.actionManager = new BABYLON.ActionManager(scene);
+    scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+        inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+    }));
+    scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+        inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+    }));
+
+    // Load radio
+    // BABYLON.SceneLoader.ImportMesh("", "/assets/", "Buggy.gltf", scene, function (meshes) {
+    //     var radio = meshes[0];
+
+    //     radio.
+    //     radio.scaling.scaleInPlace(10);
+    // });
+
+    // Load Exploding Barrel
+    const barrel = BABYLON.SceneLoader.ImportMesh("", "/assets/", "ExplodingBarrel.glb", scene, function (meshes) {
+        var barrel = meshes[0];
+        barrel.scaling.scaleInPlace(0.1);
+        barrel.position.y=4;
+        barrel.position.x=30;
+        barrel.collisionsEnabled = true;
+        barrel.checkCollisions = true;
+        return barrel;
+    });
+    // Load hero character
+    const hero = BABYLON.SceneLoader.ImportMesh("", "/assets/", "HVGirl.glb", scene, function (newMeshes, particleSystems, skeletons, animationGroups) {
+        var hero = newMeshes[0];
+        hero.position.y = 5;
+        
+        hero.collisionsEnabled = true;
+        
+        //Scale the model down        
+        hero.scaling.scaleInPlace(0.5);
+        
+        //Lock camera on the character 
+        camera.target = hero;
+        
+        //Hero character variables 
+        var heroSpeed = 0.3;
+        var heroSpeedBackwards = 0.1;
+        var heroRotationSpeed = 0.1;
+        
+        var animating = true;
+        
+        const walkAnim = scene.getAnimationGroupByName("Walking");
+        const walkBackAnim = scene.getAnimationGroupByName("WalkingBack");
+        const idleAnim = scene.getAnimationGroupByName("Idle");
+        const sambaAnim = scene.getAnimationGroupByName("Samba");
+        
+        let collectables = 0;
+        scene.registerBeforeRender(() => {
+            if (hero.intersectsMesh(items[0], true) && collectables == 0) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=1;
+                // items[0].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[0], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[1], true) && collectables == 1){
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=2;
+                // items[1].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[1], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[2], true) && collectables == 2) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=3;
+                // items[2].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[2], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[3], true) && collectables == 3) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=4;
+                // items[3].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[3], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[4], true) && collectables == 4) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=5;
+                // items[4].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[4], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[5], true) && collectables == 5) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=6;
+                // items[5].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[5], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[6], true) && collectables == 6) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=7;
+                // items[6].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[6], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[7], true) && collectables == 7) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=8;
+                // items[7].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[7], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[8], true) && collectables == 8) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=9;
+                // items[8].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[8], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(items[9], true) && collectables == 9) {
+                console.log('Player just collected ' + collectables + ' items.')
+                collectables=10;
+                // items[9].dispose();
+                collectSound.play();
+                scene.beginAnimation(items[9], 0, 2 * 10, true);
+            }
+        })
+
+        //Rendering loop (executed for everyframe)
+        scene.onBeforeRenderObservable.add(() => {
+            var keydown = false;
+            //Manage the movements of the character (e.g. position, direction)
+            if (inputMap["w"]) {
+                hero.moveWithCollisions(hero.forward.scaleInPlace(heroSpeed));
+                keydown = true;
+            }
+            if (inputMap["s"]) {
+                hero.moveWithCollisions(hero.forward.scaleInPlace(-heroSpeedBackwards));
+                keydown = true;
+            }
+            if (inputMap["a"]) {
+                hero.rotate(BABYLON.Vector3.Up(), -heroRotationSpeed);
+                keydown = true;
+            }
+            if (inputMap["d"]) {
+                hero.rotate(BABYLON.Vector3.Up(), heroRotationSpeed);
+                keydown = true;
+            }
+            if (inputMap["b"]) {
+                keydown = true;
+            }
+
+            //Manage animations to be played  
+            if (keydown) {
+                if (!animating) {
+                    animating = true;
+                    if (inputMap["s"]) {
+                        //Walk backwards
+                        walkBackAnim.start(true, 1.0, walkBackAnim.from, walkBackAnim.to, false);
+                    }
+                    else if
+                        (inputMap["b"]) {
+                        //Samba!
+                        sambaAnim.start(true, 1.0, sambaAnim.from, sambaAnim.to, false);
+                    }
+                    else {
+                        //Walk
+                        walkAnim.start(true, 1.0, walkAnim.from, walkAnim.to, false);
+                    }
+                }
+            }
+            else {
+
+                if (animating) {
+                    //Default animation is idle when no key is down     
+                    idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+
+                    //Stop all animations besides Idle Anim when no key is down
+                    sambaAnim.stop();
+                    walkAnim.stop();
+                    walkBackAnim.stop();
+
+                    //Ensure animation are played only once per rendering loop
+                    animating = false;
+                }
+            }
+        });
+        return hero;
+    });
+
+    return scene;
+}
+                window.initFunction = async function() {               
+                    var asyncEngineCreation = async function() {
+                        try {
+                        return createDefaultEngine();
+                        } catch(e) {
+                        console.log("the available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                        }
+                    }
+
+                    window.engine = await asyncEngineCreation();
+        if (!engine) throw 'engine should not be null.';
+        window.scene = createScene();};
+        initFunction().then(() => {sceneToRender = scene        
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
