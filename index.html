@@ -48,9 +48,6 @@
         const createScene =  () => {
     const scene = new BABYLON.Scene(engine);
 
-    scene.debugLayer.show({
-    embedMode: true,
-    });
     const itemsPositions = [
         {
             x: -20,
@@ -119,7 +116,7 @@
     const groundMat = new BABYLON.StandardMaterial("groundMat");
     groundMat.diffuseTexture = new BABYLON.Texture("textures/snowfloor.jpg");
     
-    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground", "assets/HeightMap2.jpg", {width:150, height:150, subdivisions: 10, minHeight: 0, maxHeight: 10});
+    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground", "assets/HeightMap2.jpg", {width:150, height:150, subdivisions: 10, minHeight: 5, maxHeight: 5});
     ground.material = groundMat;
 
     // Create walls
@@ -138,7 +135,7 @@
     walls[2].position.x = -75;
     walls[3].rotation.y = Math.PI / 2;
     walls[3].position.x = 75;
-
+    var gameover = false;
     const collectSound = new BABYLON.Sound('collectSound', './assets/collect.mp3', scene);
     const explosionSound = new BABYLON.Sound('collectSound', './assets/explosion.mp3', scene);
     const ySlide = new BABYLON.Animation("ySlide", "position.y", 10, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
@@ -156,14 +153,19 @@
         value: -5
     });
     ySlide.setKeys(keyFrames);
+
+    var myMaterial = new BABYLON.StandardMaterial("myMaterial", scene);
+    myMaterial.diffuseColor = new BABYLON.Color3(0.64, 0.34, 0.70);
+
     // Create items
     const items = [];
     for (let i = 0; i < 10; i++) {
         items.push(BABYLON.MeshBuilder.CreateBox(`item${i}`, { width: i + 2, height: 10, depth: i + 2}, scene));
         items[i].position.x = itemsPositions[i].x;
         items[i].position.z = itemsPositions[i].z;
-        items[i].position.y = 8;
+        items[i].position.y = 10;
         items[i].animations.push(ySlide);
+        items[i].material = myMaterial;
     }
 
     // Skybox
@@ -195,11 +197,11 @@
     // });
 
     const barrelPosition = {
-        y: 4,
+        y: 5,
         x: 30,
     }
     const cylinder = BABYLON.MeshBuilder.CreateCylinder("cylinder", {diameter: 4, height: 9});
-    cylinder.position.y = 8;
+    cylinder.position.y = 5;
     cylinder.position.x = barrelPosition.x;
     cylinder.isVisible = false;
 
@@ -218,6 +220,11 @@
     button1.color = "white";
     button1.fontSize = 100;
     button1.background = "purple";
+    button1.onPointerUpObservable.add(function () {
+        if(gameover){
+            location.reload();
+        }
+    });
     advancedTexture.addControl(button1);
 
 
@@ -239,7 +246,6 @@
     const barrel = BABYLON.SceneLoader.ImportMesh("", "/assets/", "ExplodingBarrel.glb", scene, function (meshes) {
         var barrel = meshes[0];
         barrel.name = 'barrel';
-        console.log(barrel);
         barrel.scaling.scaleInPlace(0.10);
         barrel.position.y = barrelPosition.y;
         barrel.position.x = barrelPosition.x;
@@ -332,7 +338,10 @@
                 collectables=10;
                 // items[9].dispose();
                 collectSound.play();
+                button1.textBlock.text = "Fim do jogo!\nPontuação: 10\n\n Recomeçar?";
+                sambaAnim.start(true, 1.0, sambaAnim.from, sambaAnim.to, false);
                 scene.beginAnimation(items[9], 0, 2 * 10, true);
+                gameover = true;
             } else if (hero.intersectsMesh(cylinder, false) && !exploded){
                 cylinder.dispose();
                 scene.getMeshByName("barrel").dispose();
