@@ -140,7 +140,7 @@
     walls[3].position.x = 75;
 
     const collectSound = new BABYLON.Sound('collectSound', './assets/collect.mp3', scene);
-    collectSound.play();
+    const explosionSound = new BABYLON.Sound('collectSound', './assets/explosion.mp3', scene);
     const ySlide = new BABYLON.Animation("ySlide", "position.y", 10, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
     const keyFrames = [];
     keyFrames.push({
@@ -194,15 +194,24 @@
     //     radio.scaling.scaleInPlace(10);
     // });
 
+    const barrelPosition = {
+        y: 4,
+        x: 30,
+    }
+    const cylinder = BABYLON.MeshBuilder.CreateCylinder("cylinder", {diameter: 4, height: 9});
+    cylinder.position.y = 8;
+    cylinder.position.x = barrelPosition.x;
+    cylinder.isVisible = false;
     // Load Exploding Barrel
     const barrel = BABYLON.SceneLoader.ImportMesh("", "/assets/", "ExplodingBarrel.glb", scene, function (meshes) {
         var barrel = meshes[0];
-        barrel.scaling.scaleInPlace(0.1);
-        barrel.position.y=4;
-        barrel.position.x=30;
+        barrel.name = 'barrel';
+        console.log(barrel);
+        barrel.scaling.scaleInPlace(0.10);
+        barrel.position.y = barrelPosition.y;
+        barrel.position.x = barrelPosition.x;
         barrel.collisionsEnabled = true;
         barrel.checkCollisions = true;
-        return barrel;
     });
     // Load hero character
     const hero = BABYLON.SceneLoader.ImportMesh("", "/assets/", "HVGirl.glb", scene, function (newMeshes, particleSystems, skeletons, animationGroups) {
@@ -210,7 +219,6 @@
         hero.position.y = 5;
         
         hero.collisionsEnabled = true;
-        
         //Scale the model down        
         hero.scaling.scaleInPlace(0.5);
         
@@ -230,6 +238,7 @@
         const sambaAnim = scene.getAnimationGroupByName("Samba");
         
         let collectables = 0;
+        let exploded = false;
         scene.registerBeforeRender(() => {
             if (hero.intersectsMesh(items[0], true) && collectables == 0) {
                 console.log('Player just collected ' + collectables + ' items.')
@@ -291,6 +300,11 @@
                 // items[9].dispose();
                 collectSound.play();
                 scene.beginAnimation(items[9], 0, 2 * 10, true);
+            } else if (hero.intersectsMesh(cylinder, false) && !exploded){
+                cylinder.dispose();
+                scene.getMeshByName("barrel").dispose();
+                explosionSound.play();
+                exploded = true;
             }
         })
 
